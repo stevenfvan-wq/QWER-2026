@@ -1,0 +1,153 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f2f2f2;
+  margin: 0;
+  min-height: 100vh;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.page {
+  display: flex;
+  gap: 18px;
+  align-items: stretch;
+  padding: 18px;
+}
+
+/* Left chat panel */
+.chat {
+  width: 420px;
+  height: 520px;
+  background: white;
+  border-radius: 10px;
+  padding: 15px;
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* Right camera panel */
+.camera-panel {
+  width: 360px;
+  height: 520px;
+  background: white;
+  border-radius: 10px;
+  padding: 15px;
+
+  display: flex;
+  flex-direction: column;
+}
+
+
+.chat {
+  width: 400px;
+  height: 500px;              /* ✅ fixed height */
+  background: white;
+  border-radius: 10px;
+  padding: 15px;
+
+  display: flex;              /* ✅ important */
+  flex-direction: column;
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+#messages {
+  flex: 1;                    /* ✅ take remaining space */
+  overflow-y: auto;           /* ✅ scroll inside */
+  border: 1px solid #ddd;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+#messages p {
+  margin: 6px 0;
+  word-wrap: break-word;
+}
+
+input {
+    padding: 8px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+button {
+    padding: 8px;
+    border: none;
+    border-radius: 6px;
+    background: #4CAF50;
+    color: white;
+    cursor: pointer;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+/* Make input + button sit nicely together */
+.input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.input-row input {
+  flex: 1;
+  margin-bottom: 0; /* overrides the default input margin */
+}
+
+/* Optional title styling */
+.section-title {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+}
+
+/* Better-looking video preview */
+#preview {
+  width: 100%;
+  max-height: 200px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  background: #000;
+  object-fit: cover;
+  margin-bottom: 10px;
+}
+
+#status {
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #fafafa;
+  border: 1px solid #eee;
+}
+#typing-indicator i {
+  opacity: 0.75;
+}
+
+.typing-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #000;
+  animation: typingPulse 1s infinite ease-in-out;
+}
+
+@keyframes typingPulse {
+  0%, 100% { transform: scale(0.6); opacity: 0.35; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+.message { margin: 6px 0; }
+.message.from-you {
+  margin-bottom: 18px; /* <- this creates the extra blank line before AI replies */
+}

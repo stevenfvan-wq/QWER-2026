@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gemini Chat</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body>
+  <div class="page">
+    <div class="chat">
+      <h2>FOCUS🚀</h2>
+
+      <div id="messages"></div>
+
+      <div class="input-row">
+        <input id="input" placeholder="What can I help with?" />
+        <button id="sendBtn">Send</button>
+      </div>
+
+      <!-- No file upload anymore -->
+      <button id="emotionBtn">Detect Emotion</button>
+    </div>
+
+    <div class="camera-panel">
+      <h3 class="section-title">Camera</h3>
+      <video id="preview" autoplay muted playsinline></video>
+      <canvas id="frame" hidden></canvas>
+
+      <div class="input-row">
+        <button id="startMonBtn">Start Studying</button>
+        <button id="stopMonBtn" disabled>Stop</button>
+      </div>
+
+      <div id="status"></div>
+    </div>
+  </div>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    marked.setOptions({ breaks: true });
+  </script>
+
+  <script>
+    const inputEl = document.getElementById("input");
+    const messagesEl = document.getElementById("messages");
+    const sendBtn = document.getElementById("sendBtn");
+
+    const preview = document.getElementById("preview");
+    const canvas = document.getElementById("frame");
+
+    const statusEl = document.getElementById("status");
+    const startMonBtn = document.getElementById("startMonBtn");
+    const stopMonBtn = document.getElementById("stopMonBtn");
+    const emotionBtn = document.getElementById("emotionBtn");
+
+    let stream = null;
+    let monitorTimer = null;
+
+    function addMessage(sender, msg) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "message " + (sender === "You" ? "from-you" : "from-ai");
+
+      const html = marked.parse(msg);
+
+      wrapper.innerHTML = `
+        <div class="sender"><b>${sender}:</b></div>
+        <div class="content">${html}</div>
+      `;
+
+      messagesEl.appendChild(wrapper);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      // Render LaTeX in just this new message
+      if (window.MathJax) {
+        (MathJax.startup?.promise || Promise.resolve())
+          .then(() => MathJax.typesetPromise([wrapper]))
+          .catch(() => {});
+      }
+    }
+    
+    function showTypingIndicator() {
+      if (document.getElementById("typing-indicator")) return;
+
+      const wrapper = document.createElement("div");
+      wrapper.id = "typing-indicator";
+      wrapper.className = "message";
+
+      wrapper.innerHTML = `
+        <div class="sender"><b>AI:</b></div>
+        <div class="content"><span class="typing-dot" aria-label="AI typing"></span></div>
+      `;
+
+      messagesEl.appendChild(wrapper);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function hideTypingIndicator() {
+      const el = document.getElementById("typing-indicator");
+      if (el) el.remove();
+    }
+
+    function secureContextGuard() {
+      // getUserMedia requires HTTPS (localhost is the special exception)
+      if (!window.isSecureContext) {
+        addMessage(
+          "System",
+          "Camera requires HTTPS. Open your ngrok URL with **https://** (not http://)."
+        );
+        return false;
+      }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        addMessage(
+          "System",
+          "Camera API unavailable in this browser/context."
+        );
+        return false;
+      }
+      return true;
+    }
+
+    async function initCamera() {
+      if (stream) return;
+      if (!secureContextGuard()) throw new Error("Insecure context / camera unavailable");
+
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      preview.srcObject = stream;
+
+      // Ensure metadata is loaded so videoWidth/videoHeight are available
+      if (preview.readyState < 2) {
+        await new Promise((resolve) => {
+          preview.onloadedmetadata = () => resolve();
+        });
+      }
+    }
+
+    async function captureFrameBlob() {
+      const w = preview.videoWidth;
+      const h = preview.videoHeight;
+
+      if (!w || !h) return null;
+
+      canvas.width = w;
+      canvas.height = h;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(preview, 0, 0, w, h);
+
+      return new Promise((resolve) => {
+        canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.85);
+      });
+    }
+
+    async function send() {
+      const msg = inputEl.value.trim();
+      if (!msg) return;
+
+      addMessage("You", msg);
+      inputEl.value = "";
+
+      showTypingIndicator();
+      sendBtn.disabled = true;
+
+      try {
+        const res = await fetch("/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: msg })
+        });
+
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); }
+        catch { throw new Error("Server returned non-JSON: " + text.slice(0, 200)); }
+
+        hideTypingIndicator();
+        addMessage("AI", data.reply || "(no reply)");
+
+      } catch (e) {
+        hideTypingIndicator();
+        addMessage("System", `Send error: ${e.message || e}`);
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+
+    async function detectEmotionFromCamera() {
+      try {
+        await initCamera();
+
+        const blob = await captureFrameBlob();
+        if (!blob) {
+          addMessage("System", "Camera not ready yet — try again in a second.");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("photo", blob, "snapshot.jpg"); // matches your Flask field name
+
+        const res = await fetch("/detect_emotion", {
+          method: "POST",
+          body: formData
+        });
+
+        let data;
+        const text = await res.text();
+        try{
+          data = JSON.parse(text);
+        }
+        catch{
+          addMessage("System", `Server returned non-JSON:\n\n\`\`\`\n${text}\n\`\`\``)
+          return;
+        }
+        addMessage("Emotion API", "```json\n" + JSON.stringify(data, null, 2) + "\n```");
+      } catch (e) {
+        addMessage("System", `Camera/Emotion error: ${e.message || e}`);
+      }
+    }
+
+    async function sendFrame() {
+      const blob = await captureFrameBlob();
+      if (!blob) return;
+
+      const formData = new FormData();
+      formData.append("photo", blob, "frame.jpg");
+
+      let res;
+      try {
+        res = await fetch("/detect_focus", { method: "POST", body: formData });
+      } catch (e) {
+        statusEl.innerHTML = `<b>Status:</b> Monitor request failed.<br/><small>${e.message || e}</small>`;
+        return;
+      }
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        statusEl.innerHTML = `<b>Status:</b> Monitor endpoint error (${res.status}).<br/><small>${text}</small>`;
+        return;
+      }
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch {
+        statusEl.innerHTML = `<b>Status:</b> Non-JSON response.<br/><small>${text}</small>`;
+        return;
+      }
+      statusEl.innerHTML = `
+        <b>Status:</b> ${data.focused ? "Ready ✅" : "Not ready ❌"}<br/>
+        <small>${data.reason || ""}</small>
+      `;
+    }
+
+    startMonBtn.addEventListener("click", async () => {
+      try {
+        await initCamera();
+
+        startMonBtn.disabled = true;
+        stopMonBtn.disabled = false;
+
+        await sendFrame();
+        monitorTimer = setInterval(sendFrame, 1500);
+
+        addMessage("System", "Started monitoring.");
+      } catch (e) {
+        addMessage("System", `Camera error: ${e.message || e}`);
+      }
+    });
+
+    stopMonBtn.addEventListener("click", () => {
+      if (monitorTimer) clearInterval(monitorTimer);
+      monitorTimer = null;
+
+      startMonBtn.disabled = false;
+      stopMonBtn.disabled = true;
+
+      addMessage("System", "Stopped monitoring.");
+    });
+
+    emotionBtn.addEventListener("click", detectEmotionFromCamera);
+
+    sendBtn.addEventListener("click", send);
+
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") send();
+    });
+  </script>
+</body>
+</html>
