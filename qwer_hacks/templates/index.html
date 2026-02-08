@@ -233,6 +233,7 @@
     }
 
     async function sendFrame() {
+      console.log("Sending frame...");
       const blob = await captureFrameBlob();
       if (!blob) return;
 
@@ -273,7 +274,7 @@
         stopMonBtn.disabled = false;
 
         await sendFrame();
-        monitorTimer = setInterval(sendFrame, 1500);
+        monitorTimer = setInterval(sendFrame, 5000);
 
         addMessage("System", "Started monitoring.");
       } catch (e) {

@@ -151,3 +151,21 @@ button:hover {
 .message.from-you {
   margin-bottom: 18px; /* <- this creates the extra blank line before AI replies */
 }
+
+.study-timer {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 700;
+}
+
+.study-timer.paused {
+  opacity: 0.6;
+}

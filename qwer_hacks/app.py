@@ -6,16 +6,19 @@ import os
 
 app = Flask(__name__)
 
-creds = service_account.Credentials.from_service_account_file("vision-key.json")
-print(f"Service Account Email: {creds.service_account_email}")
-print(f"Valid: {creds.valid}")
+# creds = service_account.Credentials.from_service_account_file("vision-key.json")
+# print(f"Service Account Email: {creds.service_account_email}")
+
+# vision_client = vision.ImageAnnotatorClient(credentials=creds)  # ✅ THIS is what you should use
+# client = genai.Client()
+# print(f"Valid: {creds.valid}")
 
 # Test creating client
-try:
-    client = vision.ImageAnnotatorClient(credentials=creds)
-    print("✅ Vision client created successfully")
-except Exception as e:
-    print(f"❌ Error: {e}")
+# try:
+#     vision_client = vision.ImageAnnotatorClient()
+#     print("✅ Vision client created successfully")
+# except Exception as e:
+#     print(f"❌ Error: {e}")
 
 
 vision_client = vision.ImageAnnotatorClient()
@@ -48,6 +51,8 @@ def _vision_face_result(image_bytes: bytes):
     try:
         image = vision.Image(content=image_bytes)
         response = vision_client.face_detection(image=image)
+
+        print(response)
 
         if response.error and response.error.message:
             return None, response.error.message
